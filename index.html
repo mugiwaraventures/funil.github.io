@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Funil de Vendas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/papaparse@latest/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chrono-node/1.3.11/chrono.min.js"></script>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-4">
+
+    <h1 class="text-3xl font-bold mb-6 text-center">Dashboard Funil de Vendas</h1>
+
+    <!-- ► Bloco de Inputs de Métricas de Tráfego -->
+    <div class="bg-white p-4 rounded-lg shadow grid grid-cols-1 sm:grid-cols-5 gap-4 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Clicks</label>
+        <input id="metricClicks" type="number" value="21736" class="mt-1 p-2 border rounded w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Pre‑LP Clicks</label>
+        <input id="metricPreLpClicks" type="number" value="7384" class="mt-1 p-2 border rounded w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">CPC (R$)</label>
+        <input id="metricCpc" type="number" step="0.01" value="2.33" class="mt-1 p-2 border rounded w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">IC (Initiate Checkout)</label>
+        <input id="metricIc" type="number" value="3346" class="mt-1 p-2 border rounded w-full" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Cost (R$)</label>
+        <input id="metricCost" type="number" step="0.01" value="50707.74" class="mt-1 p-2 border rounded w-full" />
+      </div>
+    </div>
+    <button id="updateTraffic" class="mb-6 px-4 py-2 bg-blue-600 text-white rounded shadow">
+      Atualizar Métricas de Tráfego
+    </button>
+
+    <!-- ► Upload CSV -->
+    <div class="bg-white p-4 rounded-lg shadow mb-6">
+      <label class="block text-sm font-medium text-gray-700">Importar CSV de Vendas</label>
+      <div class="flex space-x-2 mt-2">
+        <input type="file" id="csvFileInput" accept=".csv" class="p-2 border rounded flex-1">
+        <button id="loadCsvButton" class="px-4 py-2 bg-blue-600 text-white rounded shadow">Carregar CSV</button>
+      </div>
+    </div>
+
+    <!-- ► Filtros -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-lg shadow">
+        <label class="block text-sm font-medium text-gray-700">Período de Visualização</label>
+        <input type="date" id="startDate" class="mt-1 p-2 border rounded w-full">
+        <input type="date" id="endDate"   class="mt-1 p-2 border rounded w-full">
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <label class="block text-sm font-medium text-gray-700">Grupo de Produto</label>
+        <select id="productGroup" class="mt-1 p-2 border rounded w-full">
+          <option value="all">Todos</option>
+          <option value="FRONT">FRONT</option>
+          <option value="UP1">UP1</option>
+          <option value="DW1">DW1</option>
+          <option value="UP2">UP2</option>
+          <option value="DW2">DW2</option>
+          <option value="UP3">UP3</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ► Cards de Métricas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Faturamento Líquido</h2>
+        <p id="netRevenue" class="text-2xl font-bold text-green-600">R$ 0,00</p>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Lucro</h2>
+        <p id="profit" class="text-2xl font-bold text-green-600">R$ 0,00</p>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">CPA</h2>
+        <p id="cpa" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Custo</h2>
+        <p id="cost" class="text-2xl font-bold text-red-600">R$ 0,00</p>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">ROI</h2>
+        <p id="roi" class="text-2xl font-bold text-purple-600">0 %</p>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">ARPU</h2>
+        <p id="arpu" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+      </div>
+      <!-- Card: Conversão Total Funil -->
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Conv. Total Funil</h2>
+        <p id="totalFunnelConv" class="text-2xl font-bold text-indigo-600">0,00%</p>
+      </div>
+      <!-- Card: Vendas de Email -->
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Vendas de Email</h2>
+        <p id="emailSalesCount" class="text-2xl font-bold text-indigo-600">0</p>
+      </div>
+      <!-- Card: Faturamento Top Produto -->
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Faturamento Top Produto</h2>
+        <p id="revenueByProductTop" class="text-2xl font-bold text-indigo-600">R$ 0,00</p>
+      </div>
+      <!-- Card: Conversões Totais -->
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold">Conversões Totais</h2>
+        <p id="totalConversionsCard" class="text-2xl font-bold text-indigo-600">0</p>
+      </div>
+    </div>
+
+
+
+    <!-- ► Tabelas -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold mb-2">Vendas por Origem SRC</h2>
+        <table class="w-full text-sm">
+          <thead>
+            <tr><th class="text-left">Origem</th><th class="text-right">Quantidade</th><th class="text-right">% Front</th></tr>
+          </thead>
+          <tbody id="salesBySrc"></tbody>
+        </table>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold mb-2">Vendas por Produto</h2>
+        <table class="w-full text-sm">
+          <thead><tr><th class="text-left">Produto</th><th class="text-right">Quantidade</th><th class="text-right">% Front</th></tr></thead>
+          <tbody id="salesByProduct"></tbody>
+        </table>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold mb-2">Faturamento por Produto</h2>
+        <table class="w-full text-sm">
+          <thead><tr><th class="text-left">Produto</th><th class="text-right">Valor</th><th class="text-right">% Front</th></tr></thead>
+          <tbody id="revenueByProduct"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ► Gráficos e Funil de Conversão -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold mb-2">Vendas por Dia da Semana</h2>
+        <canvas id="salesByDayChart"></canvas>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <h2 class="text-lg font-semibold mb-2">Vendas por País</h2>
+        <table class="w-full text-sm">
+          <thead><tr><th class="text-left">País</th><th class="text-right">Qtd</th><th class="text-right">% Total</th></tr></thead>
+          <tbody id="salesByCountry"></tbody>
+        </table>
+      </div>
+    </div>
+  
+
+    <!-- ► Tabela Pós-Venda -->
+    <div class="bg-white p-4 rounded-lg shadow">
+      <h2 class="text-lg font-semibold mb-2">Conversão Pós-Venda</h2>
+      <table class="w-full text-sm">
+        <thead><tr><th class="text-left">Upsell</th><th class="text-right">% Conversão</th></tr></thead>
+        <tbody id="postSaleConversion"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    const redTrackMetrics = {
+      clicks: 21736,
+      preLpClicks: 7384,
+      lpClicks: 3346,
+      cpc: 2.33,
+      ic: 3346,
+      cic: 15.15,
+      cost: 50707.74
+    };
+    let salesData = [], filteredData = [];
+
+    function formatCurrency(v) {
+      return `R$ ${v.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
+    }
+    function formatPercentage(v) {
+      return `${v.toFixed(2)}%`;
+    }
+
+    // ► Atualizar Métricas de Tráfego
+    document.getElementById('updateTraffic').addEventListener('click', () => {
+      const clicks = parseInt(document.getElementById('metricClicks').value) || 0;
+      const preLp  = parseInt(document.getElementById('metricPreLpClicks').value) || 0;
+      const cpc    = parseFloat(document.getElementById('metricCpc').value) || 0;
+      const ic     = parseInt(document.getElementById('metricIc').value) || 0;
+      const cost   = parseFloat(document.getElementById('metricCost').value) || 0;
+
+      redTrackMetrics.clicks      = clicks;
+      redTrackMetrics.preLpClicks = preLp;
+      redTrackMetrics.lpClicks    = ic;
+      redTrackMetrics.ic          = ic;
+      redTrackMetrics.cpc         = cpc;
+      redTrackMetrics.cost        = cost;
+      redTrackMetrics.cic         = cost / (ic || 1);
+
+      applyFilters();
+    });
+
+    // ► Carregar CSV
+    document.getElementById('loadCsvButton').addEventListener('click', () => {
+      const file = document.getElementById('csvFileInput').files[0];
+      if (!file) return alert('Selecione um CSV antes de carregar.');
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim().replace(/^"|"$/g, ''),
+        transform: (v, hdr) => {
+          const t = v.trim().replace(/^"|"$/g, '');
+          if (hdr === 'Comissão')         return parseFloat(t) || 0;
+          if (hdr === 'Data finalizada')  return chrono.parseDate(t);
+          return t;
+        },
+        complete: res => {
+          salesData = res.data;
+          applyFilters();
+        },
+        error: err => console.error(err)
+      });
+    });
+
+    // ► Filtros
+    document.getElementById('startDate').addEventListener('change', applyFilters);
+    document.getElementById('endDate').addEventListener('change',   applyFilters);
+    document.getElementById('productGroup').addEventListener('change',applyFilters);
+
+    // ► Funções principais
+    function applyFilters() {
+      const sd = document.getElementById('startDate').value;
+      const ed = document.getElementById('endDate').value;
+      const pg = document.getElementById('productGroup').value;
+      filteredData = salesData.filter(r => {
+        let ok = true;
+        const d = r['Data finalizada'];
+        if (d instanceof Date) {
+          if (sd) ok &= d >= new Date(sd);
+          if (ed) ok &= d <= new Date(ed);
+        }
+        if (pg !== 'all') ok &= r['Grupo'] === pg;
+        return ok;
+      });
+      const m = calculateMetrics(filteredData);
+      updateMetrics(m);
+      updateTables(m);
+      renderSalesByDayChart(m);
+      renderFunnelChart(m);
+    }
+
+    function calculateMetrics(data) {
+      const front = data.filter(r => r['Grupo'] === 'FRONT'),
+            totalFront = front.length;
+      const net    = data.reduce((s,r) => s + (r['Comissão']||0), 0),
+            profit = net * 0.3,
+            cpa    = totalFront ? redTrackMetrics.cost/totalFront : 0,
+            roi    = redTrackMetrics.cost ? ((net-redTrackMetrics.cost)/redTrackMetrics.cost)*100 : 0,
+            arpu   = totalFront ? net/totalFront : 0;
+      const countBy = (arr,key)=> arr.reduce((a,r)=>{ const k=r[key]||'Desconhecido'; a[k]=(a[k]||0)+1; return a; },{});
+      const sumBy   = (arr,key,val)=> arr.reduce((a,r)=>{ const k=r[key]||'Desconhecido'; a[k]=(a[k]||0)+(r[val]||0); return a; },{});
+      const build   = (obj,total,isVal)=> Object.entries(obj).map(([k,v])=>({
+                          name:k, quantity:isVal?v:v, value:isVal?v:undefined,
+                          percentage: total ? (v/total)*100 : 0
+                        })).sort((a,b)=> (isVal?b.value-a.value:b.quantity-a.quantity));
+      const salesBySrc     = build(countBy(front,'src'),totalFront),
+            salesByProduct = build(countBy(front,'Nome do Plano'),totalFront),
+            revenueByProduct = build(sumBy(data,'Nome do Plano','Comissão'),
+                                     front.reduce((s,r)=>s+(r['Comissão']||0),0), true),
+            days = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+            salesByDay = days.map(d=>{ const q=(countBy(front,'Data finalizada')[d]||0);
+                                       return {day:d, quantity:q, percentage: totalFront? q/totalFront*100:0}; }),
+            salesByCountry = build(countBy(front,'País'),totalFront);
+      const funnel = {
+        clicks: redTrackMetrics.clicks,
+        landing: redTrackMetrics.lpClicks,
+        ic: redTrackMetrics.ic,
+        approved: totalFront
+      };
+      const postSale = ['UP1','DW1','UP2','DW2','UP3'].map(u=>{
+        const cnt = data.filter(r=>r['Grupo']===u).length;
+        return { upsell:u, percentage: totalFront? cnt/totalFront*100:0 };
+      });
+      return { netRevenue:net, profit, cpa, cost:redTrackMetrics.cost, roi, arpu,
+               salesBySrc, salesByProduct, revenueByProduct,
+               salesByDay, salesByCountry, funnel, postSale };
+    }
+
+    function updateMetrics(m) {
+      document.getElementById('netRevenue').textContent       = formatCurrency(m.netRevenue);
+      document.getElementById('profit').textContent          = formatCurrency(m.profit);
+      document.getElementById('cpa').textContent             = formatCurrency(m.cpa);
+      document.getElementById('cost').textContent            = formatCurrency(m.cost);
+      document.getElementById('roi').textContent             = formatPercentage(m.roi);
+      document.getElementById('arpu').textContent            = formatCurrency(m.arpu);
+
+      // Conversão Total Funil
+      document.getElementById('totalFunnelConv').textContent =
+        formatPercentage(m.funnel.clicks ? m.funnel.approved/m.funnel.clicks*100 : 0);
+
+      // Vendas de Email
+      const emailCount = m.salesBySrc
+        .filter(item => item.name.toLowerCase().startsWith('email'))
+        .reduce((sum,item) => sum + item.quantity, 0);
+      document.getElementById('emailSalesCount').textContent = emailCount;
+
+      // Faturamento Top Produto
+      if (m.revenueByProduct.length > 0) {
+        const top = m.revenueByProduct[0];
+        document.getElementById('revenueByProductTop').textContent =
+          formatCurrency(top.value);
+      }
+
+      // Conversões Totais
+      document.getElementById('totalConversionsCard').textContent = m.funnel.approved;
+
+      // Pós‑Venda
+      document.getElementById('postSaleConversion').innerHTML =
+        m.postSale.map(u =>
+          `<tr><td>${u.upsell}</td><td class="text-right">${formatPercentage(u.percentage)}</td></tr>`
+        ).join('');
+    }
+
+    function updateTables(m) {
+      document.getElementById('salesBySrc').innerHTML =
+        m.salesBySrc.map(i =>
+          `<tr><td>${i.name}</td><td class="text-right">${i.quantity}</td><td class="text-right">${formatPercentage(i.percentage)}</td></tr>`
+        ).join('');
+      document.getElementById('salesByProduct').innerHTML =
+        m.salesByProduct.map(i =>
+          `<tr><td>${i.name}</td><td class="text-right">${i.quantity}</td><td class="text-right">${formatPercentage(i.percentage)}</td></tr>`
+        ).join('');
+      document.getElementById('revenueByProduct').innerHTML =
+        m.revenueByProduct.map(i =>
+          `<tr><td>${i.name}</td><td class="text-right">${formatCurrency(i.value)}</td><td class="text-right">${formatPercentage(i.percentage)}</td></tr>`
+        ).join('');
+      document.getElementById('salesByCountry').innerHTML =
+        m.salesByCountry.map(i =>
+          `<tr><td>${i.name}</td><td class="text-right">${i.quantity}</td><td class="text-right">${formatPercentage(i.percentage)}</td></tr>`
+        ).join('');
+    }
+
+    function renderSalesByDayChart(m) {
+      const ctx = document.getElementById('salesByDayChart').getContext('2d');
+      if (window.salesByDayChart) window.salesByDayChart.destroy();
+      window.salesByDayChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: m.salesByDay.map(i => i.day),
+          datasets: [{ label: 'Vendas', data: m.salesByDay.map(i => i.quantity) }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } },
+          plugins: {
+            tooltip: {
+              callbacks:
+                { label(c) {
+                    const i = c.dataIndex;
+                    return `Vendas: ${c.parsed.y} (${formatPercentage(m.salesByDay[i].percentage)})`;
+                  } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderFunnelChart(m) {
+      const f = m.funnel,
+            labels = ['Cliques','Landing','IC','Aprovadas'],
+            data   = [f.clicks,f.landing,f.ic,f.approved],
+            ctx    = document.getElementById('funnelChart').getContext('2d');
+      if (window.funnelChart) window.funnelChart.destroy();
+      window.funnelChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label:'Quantidade', data }] },
+        options: {
+          indexAxis: 'y',
+          scales: { x: { beginAtZero: true } },
+          plugins: {
+            tooltip: {
+              callbacks:
+                { label(ctx) {
+                    const i = ctx.dataIndex;
+                    return `Qtd: ${ctx.parsed.x} (${formatPercentage(data[i]/data[0]*100)})`;
+                  } }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
