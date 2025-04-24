@@ -139,6 +139,17 @@
     <h2 class="text-lg font-semibold">Clicks</h2>
     <p id="clicksCard" class="text-2xl font-bold text-blue-600">0</p>
   </div>
+  <!-- Card: EPC (Earning Per Click) -->
+  <div class="bg-white p-4 rounded-lg shadow">
+    <h2 class="text-lg font-semibold">EPC</h2>
+    <p id="epcCard" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+  </div>
+
+  <!-- Card: Receita de Email -->
+  <div class="bg-white p-4 rounded-lg shadow">
+    <h2 class="text-lg font-semibold">Receita Email</h2>
+    <p id="emailRevenueCard" class="text-2xl font-bold text-blue-600">R$ 0,00</p>
+  </div>
 
     </div>
     <!-- ► Tabelas de Vendas -->
@@ -210,11 +221,27 @@
       </div>
     </div>
 
-    <!-- ► Funil de Conversão (gráfico já existe) -->
+    <!-- ► Funil de Conversão (Perca do funil) -->
     <div class="bg-white p-4 rounded-lg shadow mb-6">
-      <h2 class="text-lg font-semibold mb-2">Funil de Conversão</h2>
-      <canvas id="funnelChart"></canvas>
-    </div>
+  <h2 class="text-lg font-semibold mb-4">Perda por Etapa do Funil</h2>
+  <ul class="space-y-2">
+    <li>
+      <strong>Cliques → Landing:</strong>
+      <span id="lossClicksLandingCount">0</span> ( 
+      <span id="lossClicksLandingPct">0%</span> )
+    </li>
+    <li>
+      <strong>Landing → IC:</strong>
+      <span id="lossLandingICCount">0</span> ( 
+      <span id="lossLandingICPct">0%</span> )
+    </li>
+    <li>
+      <strong>IC → Venda:</strong>
+      <span id="lossICApprovedCount">0</span> ( 
+      <span id="lossICApprovedPct">0%</span> )
+    </li>
+  </ul>
+</div>
 
     <!-- ► Conversão Pós-Venda -->
     <div class="bg-white p-4 rounded-lg shadow">
@@ -327,7 +354,7 @@
 
       const funnel = {
         clicks: redTrackMetrics.clicks,
-        landing:redTrackMetrics.lpClicks,
+        landing: redTrackMetrics.preLpClicks,
         ic:redTrackMetrics.ic,
         approved:totalFront
       };
@@ -336,10 +363,12 @@
         const cnt=data.filter(r=>r['Grupo']===u).length;
         return {upsell:u,percentage: totalFront? cnt/totalFront*100:0};
       });
-
+      const emailRevenue = data
+    .filter(r => (r.src||'').toLowerCase().startsWith('email'))
+    .reduce((sum, r) => sum + (r['Comissão']||0), 0);
       return {
         netRevenue:net, profit, cpa, cost, roi, arpu,
-        totalSales: data.length,
+        totalSales: data.length, emailRevenue, 
         salesBySrc, salesByProduct, revenueByProduct,
         salesByDay, salesByCountry, funnel, postSale
       };
@@ -354,11 +383,48 @@
       document.getElementById('roi').textContent        = formatPercentage(m.roi);
       document.getElementById('arpu').textContent       = formatCurrency(m.arpu);
       document.getElementById('cpcCard').textContent    = formatCurrency(redTrackMetrics.cpc);
-      document.getElementById('clicksCard').textContent = redTrackMetrics.clicks;;
+      document.getElementById('clicksCard').textContent = redTrackMetrics.clicks;
+        // ► EPC = Receita Líquida / Clicks
+  const epc = redTrackMetrics.clicks
+    ? m.netRevenue / redTrackMetrics.clicks
+    : 0;
+  document.getElementById('epcCard').textContent =
+    formatCurrency(epc);
+
+  // ► Receita de Email (calculada em calculateMetrics e retornada como m.emailRevenue)
+  document.getElementById('emailRevenueCard').textContent =
+    formatCurrency(m.emailRevenue);
+
+
 
 
       document.getElementById('totalFunnelConv').textContent =
         formatPercentage(m.funnel.clicks? m.funnel.approved/m.funnel.clicks*100:0);
+
+          // ► Perda em cada etapa do funil
+  const clicks        = redTrackMetrics.clicks;
+  const landing       = m.funnel.landing;
+  const ic            = m.funnel.ic;
+  const approved      = m.funnel.approved;
+
+  // Cliques → Landing
+  const lossCLCount   = clicks - landing;
+  const lossCLPct     = clicks ? (lossCLCount / clicks) * 100 : 0;
+  document.getElementById('lossClicksLandingCount').textContent = lossCLCount;
+  document.getElementById('lossClicksLandingPct').textContent   = formatPercentage(lossCLPct);
+
+  // Landing → IC
+  const lossLICount   = landing - ic;
+  const lossLIPct     = landing ? (lossLICount / landing) * 100 : 0;
+  document.getElementById('lossLandingICCount').textContent    = lossLICount;
+  document.getElementById('lossLandingICPct').textContent      = formatPercentage(lossLIPct);
+
+  // IC → Approved
+  const lossIACount   = ic - approved;
+  const lossIAPct     = ic ? (lossIACount / ic) * 100 : 0;
+  document.getElementById('lossICApprovedCount').textContent   = lossIACount;
+  document.getElementById('lossICApprovedPct').textContent     = formatPercentage(lossIAPct);
+
 
       const emailCount = m.salesBySrc
         .filter(i=>i.name.toLowerCase().startsWith('email'))
